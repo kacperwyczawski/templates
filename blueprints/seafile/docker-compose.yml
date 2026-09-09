@@ -19,7 +19,7 @@ services:
       - MYSQL_LOG_CONSOLE=true
       - MARIADB_AUTO_UPGRADE=1
     volumes:
-      - seafile-mysql-db:/var/lib/mysql"
+      - seafile-mysql-db:/var/lib/mysql
     healthcheck:
       test:
         [
