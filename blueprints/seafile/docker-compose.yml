@@ -1,11 +1,15 @@
 # https://manual.seafile.com/latest/setup/setup_ce_by_docker/
-# 
-# !!! IMPORTANT !!!
-# Please look at the environment variable settings and tweak
-# them prior to the first deployment!
 #
-# If you have already deployed once, changes to some environment
-# variables may not take effect. For example, initial passwords.
+# This Dokploy template for seafile sets the default credentials to:
+#   USERNAME: admin@example.com
+#   PASSWORD: <SECRET GENERATED IN ENVIRONMENT VARIABLES>
+#
+# !!! IMPORTANT !!!
+#     Please look at the environment variable settings and tweak
+#     them prior to the first deployment!
+#
+#     If you have already deployed once, changes to some environment
+#     variables may not take effect. For example, initial passwords.
 
 services:
   seafile-db:
@@ -17,8 +21,6 @@ services:
       - MARIADB_AUTO_UPGRADE=1
     volumes:
       - seafile-mysql-db:/var/lib/mysql
-    networks:
-      - seafile-net
     healthcheck:
       test:
         [
@@ -42,8 +44,6 @@ services:
       - exec redis-server --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-    networks:
-      - seafile-net
 
   seafile:
     image: seafileltd/seafile-mc:13.0-latest
@@ -76,19 +76,6 @@ services:
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - MD_FILE_COUNT_LIMIT=${MD_FILE_COUNT_LIMIT:-100000}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      - "traefik.http.routers.seafile-websecure.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`)"
-      - "traefik.http.routers.seafile-websecure.entrypoints=websecure"
-      - "traefik.http.routers.seafile-websecure.tls=true"
-      - "traefik.http.routers.seafile-websecure.priority=1"
-      - "traefik.http.routers.seafile-websecure.service=seafile"
-      - "traefik.http.routers.seafile-web.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`)"
-      - "traefik.http.routers.seafile-web.entrypoints=web"
-      - "traefik.http.routers.seafile-web.priority=1"
-      - "traefik.http.routers.seafile-web.service=seafile"
-      - "traefik.http.services.seafile.loadbalancer.server.port=80"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"]
       interval: 30s
@@ -100,9 +87,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    networks:
-      - seafile-net
-      - dokploy-network
 
   seadoc:
     image: seafileltd/sdoc-server:2.0-latest
@@ -122,52 +106,32 @@ services:
     depends_on:
       seafile-db:
         condition: service_healthy
-    networks:
-      - seafile-net
-      - dokploy-network
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-
-      # SDOC Server (API & Editor): Strips /sdoc-server prefix
       - "traefik.http.routers.seadoc-server.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`) && PathPrefix(`/sdoc-server`)"
       - "traefik.http.routers.seadoc-server.entrypoints=websecure"
       - "traefik.http.routers.seadoc-server.tls=true"
       - "traefik.http.routers.seadoc-server.priority=100"
       - "traefik.http.routers.seadoc-server.middlewares=seadoc-strip"
       - "traefik.http.routers.seadoc-server.service=seadoc"
-
       - "traefik.http.routers.seadoc-server-http.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`) && PathPrefix(`/sdoc-server`)"
       - "traefik.http.routers.seadoc-server-http.entrypoints=web"
       - "traefik.http.routers.seadoc-server-http.priority=100"
       - "traefik.http.routers.seadoc-server-http.middlewares=seadoc-strip"
       - "traefik.http.routers.seadoc-server-http.service=seadoc"
-
-      # SDOC WebSockets: Preserves /socket.io path
       - "traefik.http.routers.seadoc-socket.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`) && PathPrefix(`/socket.io`)"
       - "traefik.http.routers.seadoc-socket.entrypoints=websecure"
       - "traefik.http.routers.seadoc-socket.tls=true"
       - "traefik.http.routers.seadoc-socket.priority=100"
       - "traefik.http.routers.seadoc-socket.service=seadoc"
-
       - "traefik.http.routers.seadoc-socket-http.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`) && PathPrefix(`/socket.io`)"
       - "traefik.http.routers.seadoc-socket-http.entrypoints=web"
       - "traefik.http.routers.seadoc-socket-http.priority=100"
       - "traefik.http.routers.seadoc-socket-http.service=seadoc"
-
-      # Middleware definition
       - "traefik.http.middlewares.seadoc-strip.stripprefix.prefixes=/sdoc-server"
-
-      # Internal target port
       - "traefik.http.services.seadoc.loadbalancer.server.port=80"
 
 volumes:
   seafile-mysql-db:
   seafile-data:
   seadoc-data:
-
-networks:
-  seafile-net:
-    name: seafile-net
-  dokploy-network:
-    external: true
