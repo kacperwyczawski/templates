@@ -11,6 +11,8 @@
 #     If you have already deployed once, changes to some environment
 #     variables may not take effect. For example, initial passwords.
 
+version: "3.8"
+
 services:
   seafile-db:
     image: mariadb:10.11
@@ -36,17 +38,17 @@ services:
       retries: 10
 
   redis:
-    image: redis
+    image: redis:8.8
     restart: unless-stopped
     command:
       - /bin/sh
       - -c
       - exec redis-server --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Variable is not set or empty}
 
   seafile:
-    image: seafileltd/seafile-mc:13.0-latest
+    image: seafileltd/seafile-mc:13.0.4
     restart: unless-stopped
     volumes:
       - seafile-data:/shared
@@ -70,11 +72,11 @@ services:
       - SEAFILE_LOG_TO_STDOUT=${SEAFILE_LOG_TO_STDOUT:-false}
       - ENABLE_GO_FILESERVER=${ENABLE_GO_FILESERVER:-true}
       - ENABLE_SEADOC=${ENABLE_SEADOC:-true}
-      - SEADOC_SERVER_URL=${SEAFILE_SERVER_PROTOCOL:-https}://${SEAFILE_SERVER_HOSTNAME:?Variable is not set or empty}/sdoc-server
+      - SEADOC_SERVER_URL=${SEADOC_SERVER_URL:?Variable is not set or empty}
       - CACHE_PROVIDER=${CACHE_PROVIDER:-redis}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Variable is not set or empty}
       - MD_FILE_COUNT_LIMIT=${MD_FILE_COUNT_LIMIT:-100000}
     labels:
       - "traefik.enable=true"
@@ -101,7 +103,7 @@ services:
         condition: service_started
 
   seadoc:
-    image: seafileltd/sdoc-server:2.0-latest
+    image: seafileltd/sdoc-server:2.0.4
     restart: unless-stopped
     volumes:
       - seadoc-data:/shared
